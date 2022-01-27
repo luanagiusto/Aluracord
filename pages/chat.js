@@ -35,7 +35,7 @@ export default function ChatPage() {
         <Box
             styleSheet={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: appConfig.theme.colors.primary[500],
+                backgroundColor: appConfig.theme.colors.primary[950],
                 backgroundImage: `url(https://images.hdqwalls.com/wallpapers/coven-morgana-league-of-legends-4k-pn.jpg)`,
                 backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundBlendMode: 'multiply',
                 color: appConfig.theme.colors.neutrals['000']
