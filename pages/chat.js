@@ -1,16 +1,27 @@
 import { Box, Text, TextField, Image, Button } from '@skynexui/components';
 import React from 'react';
 import appConfig from '../config.json';
-
-import { createClient } from '@supabase/supabase-js'
+import { useRouter } from 'next/router';
+import { createClient } from '@supabase/supabase-js';
+import { ButtonSendSticker } from '../src/components/ButtonSendSticker';
 
 // Como fazer AJAX: https://medium.com/@omariosouto/entendendo-como-fazer-ajax-com-a-fetchapi-977ff20da3c6
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTY0MzMyNTE0MiwiZXhwIjoxOTU4OTAxMTQyfQ._tQhtMy6EEeHd3GeX0U2wGMKHkNcUAeH3zRncZ7pFC8';
 const SUPABASE_URL = 'https://jmzzdquwzqgawfdqorkz.supabase.co';
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+function escutaMensagensEmTempoReal(adicionaMensagem) {
+    return supabaseClient
+        .from('mensagens')
+        .on('INSERT', (respostaLive) => {
+            adicionaMensagem(respostaLive.new);
+        })
+        .subscribe();
+}
 
-export default function ChatPage() {   
+export default function ChatPage() {
+    const roteamento = useRouter();
+    const usuarioLogado = roteamento.query.username;
 
     const [mensagem, setMensagem] = React.useState('');
     const [listaDeMensagens, setListaDeMensagens] = React.useState([]);
@@ -21,38 +32,59 @@ export default function ChatPage() {
             .select('*')
             .order('id', { ascending: false })
             .then(({ data }) => {
-                console.log('Dados da consulta:', data);
+                //  console.log('Dados da consulta:', data);
                 setListaDeMensagens(data);
             });
+
+        const subscription = escutaMensagensEmTempoReal((novaMensagem) => {
+            console.log('Nova mensagem:', novaMensagem);
+            console.log('listaDeMensagens:', listaDeMensagens);
+            // Quero reusar um valor de referencia (objeto/array) 
+            // Passar uma função pro setState
+
+            // setListaDeMensagens([
+            //     novaMensagem,
+            //     ...listaDeMensagens
+            // ])
+            setListaDeMensagens((valorAtualDaLista) => {
+                console.log('valorAtualDaLista:', valorAtualDaLista);
+                return [
+                    novaMensagem,
+                    ...valorAtualDaLista,
+                ]
+            });
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        }
     }, []);
 
-    
+
     function handleNovaMensagem(novaMensagem) {
         const mensagem = {
-          // id: listaDeMensagens.length + 1,
-          de: 'luanagiusto',
-          texto: novaMensagem,
+            // id: listaDeMensagens.length + 1,
+            de: usuarioLogado,
+            texto: novaMensagem,
         };
-    
+
         supabaseClient
-          .from('mensagens')
-          .insert([
-            // Tem que ser um objeto com os MESMOS CAMPOS que você escreveu no supabase
-            mensagem
-          ])
-          .then(({ data }) => {
-            console.log('Criando mensagem: ', data);
+            .from('mensagens')
+            .insert([
+                // Tem que ser um objeto com os MESMOS CAMPOS que você escreveu no supabase
+                mensagem
+            ])
+            .then(({ data }) => {
+                console.log('Criando mensagem: ', data);
+                // setListaDeMensagens([
+                //     data[0],
+                //     ...listaDeMensagens,
+                // ]);
+            });
 
-        setListaDeMensagens([
-           
-            data[0],
-          ...listaDeMensagens,
-        ]);
-
-    });
         setMensagem('');
     }
-          
+
 
     return (
         <Box
@@ -80,7 +112,7 @@ export default function ChatPage() {
             >
                 <Header />
                 <Box
-                    
+
                     styleSheet={{
                         position: 'relative',
                         display: 'flex',
@@ -90,10 +122,10 @@ export default function ChatPage() {
                         flexDirection: 'column',
                         borderRadius: '5px',
                         padding: '16px',
-                      }}
+                    }}
                 >
                     <MessageList mensagens={listaDeMensagens} />
-                    
+
                     <Box
                         as="form"
                         styleSheet={{
@@ -126,6 +158,13 @@ export default function ChatPage() {
                                 color: appConfig.theme.colors.neutrals[200],
                             }}
                         />
+                        {/* CallBack */}
+                        <ButtonSendSticker
+                            onStickerClick={(sticker) => {
+                                // console.log('[USANDO O COMPONENTE] Salva esse sticker no banco', sticker);
+                                handleNovaMensagem(':sticker: ' + sticker);
+                            }}
+                        />
                     </Box>
                 </Box>
             </Box>
@@ -144,7 +183,7 @@ function Header() {
                     variant='tertiary'
                     colorVariant='neutral'
                     label='Logout'
-                    href="https://images.unsplash.com/photo-1617368041697-dbe3bebfabc7?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80"
+                    href="/"
                 />
             </Box>
         </>
@@ -152,7 +191,7 @@ function Header() {
 }
 
 function MessageList(props) {
-    console.log(props);
+    //console.log(props);
     return (
         <Box
             tag="ul"
@@ -194,9 +233,11 @@ function MessageList(props) {
                                 }}
                                 src={`https://github.com/${mensagem.de}.png`}
                             />
+
                             <Text tag="strong">
                                 {mensagem.de}
                             </Text>
+
                             <Text
                                 styleSheet={{
                                     fontSize: '10px',
@@ -208,7 +249,21 @@ function MessageList(props) {
                                 {(new Date().toLocaleDateString())}
                             </Text>
                         </Box>
-                        {mensagem.texto}
+                        {/* {mensagem.texto} */}
+                        {/* [Declarativo] */}
+                        {/* Condicional: {mensagem.texto.startsWith(':sticker:').toString()} */}
+                        {mensagem.texto.startsWith(':sticker:')
+                            ? (
+                                <Image src={mensagem.texto.replace(':sticker:', '')} />
+                            )
+                            : (
+                                mensagem.texto
+                            )}
+                        {/* if mensagem de texto possui stickers:
+                           mostra a imagem
+                        else 
+                           mensagem.texto */}
+                        {/* {mensagem.texto} */}
                     </Text>
                 );
             })}
